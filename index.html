@@ -4,12 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Anime Reviews</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+
+    <!-- Configuração do Firebase -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDS6if_HInv3C17Qt5oHQY0h5rGwMAJYZA",
+            authDomain: "anime-opnion.firebaseapp.com",
+            projectId: "anime-opnion",
+            storageBucket: "anime-opnion.appspot.com",
+            messagingSenderId: "414803837387",
+            appId: "1:414803837387:web:8f4f1f194454fde7ddb64e",
+            measurementId: "G-X5SN0RPN8N"
+        };
+
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+    </script>
+
     <style>
         :root {
             --primary-color: #D8B4E2;
             --secondary-color: #FFB6C1;
             --accent-color: #E6E6FA;
             --text-color: #4A4A4A;
+            --report-color: #ff4444;
         }
 
         * {
@@ -45,8 +67,6 @@
             border-radius: 15px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 30px;
-            transform: scale(0.95);
-            transition: transform 0.3s;
         }
 
         input, textarea, select {
@@ -80,6 +100,27 @@
             animation: fadeInUp 0.5s ease-out;
         }
 
+        .review-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .rating-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .report-btn {
+            background: var(--report-color);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
@@ -100,6 +141,12 @@
             <input type="text" name="anime" placeholder="Nome do Anime" required>
             <select name="season" required>
                 <option value="">Selecione a Temporada</option>
+                <script>
+                    // Gerar opções de temporada
+                    for(let i = 1; i <= 50; i++) {
+                        document.write(`<option value="${i}">Temporada ${i}</option>`);
+                    }
+                </script>
             </select>
             <input type="number" name="episode" placeholder="Episódio" min="1" required>
             <textarea name="comment" placeholder="Escreva sua review..." rows="5" required></textarea>
@@ -110,32 +157,43 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Carrega reviews salvas
-            const savedReviews = localStorage.getItem('animeReviews');
-            if (savedReviews) {
-                reviews = JSON.parse(savedReviews);
-            }
-            
-            // Preenche temporadas
-            const seasonSelect = document.querySelector('select[name="season"]');
-            for(let i = 1; i <= 50; i++) {
-                seasonSelect.innerHTML += `<option value="${i}">Temporada ${i}</option>`;
-            }
-            
-            renderReviews();
-        });
-
-        let reviews = JSON.parse(localStorage.getItem('animeReviews')) || [];
         const form = document.getElementById('reviewForm');
+        const reviewsContainer = document.getElementById('reviewsContainer');
 
-        function saveReviews() {
-            localStorage.setItem('animeReviews', JSON.stringify(reviews));
-        }
+        // Carregar reviews
+        const loadReviews = async () => {
+            const snapshot = await db.collection('reviews')
+                .orderBy('date', 'desc')
+                .get();
+            
+            reviewsContainer.innerHTML = '';
+            
+            snapshot.forEach(doc => {
+                const review = doc.data();
+                reviewsContainer.innerHTML += `
+                    <div class="review-card">
+                        <h3>${review.anime} - S${review.season} E${review.episode}</h3>
+                        <p><strong>${review.name}</strong> <em>(${new Date(review.date).toLocaleString('pt-BR')})</em></p>
+                        <p>${review.comment}</p>
+                        <div class="review-actions">
+                            <div class="rating-buttons">
+                                <button onclick="handleLike('${doc.id}')">👍 ${review.likes}</button>
+                                <button onclick="handleDislike('${doc.id}')">👎 ${review.dislikes}</button>
+                            </div>
+                            <button class="report-btn" onclick="handleReport('${doc.id}')">
+                                🚩 Denúncias: ${review.reports}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        };
 
-        form.addEventListener('submit', (e) => {
+        // Enviar nova review
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const newReview = {
+            
+            await db.collection('reviews').add({
                 name: form.username.value.trim(),
                 anime: form.anime.value.trim(),
                 season: form.season.value,
@@ -143,35 +201,46 @@
                 comment: form.comment.value.trim(),
                 likes: 0,
                 dislikes: 0,
-                date: new Date().toLocaleString('pt-BR')
-            };
+                reports: 0,
+                date: new Date().toISOString()
+            });
 
-            reviews.unshift(newReview);
-            saveReviews();
-            renderReviews();
             form.reset();
+            loadReviews();
         });
 
-        function handleRating(index, type) {
-            reviews[index][type === 'like' ? 'likes' : 'dislikes']++;
-            saveReviews();
-            renderReviews();
-        }
+        // Sistema de votação
+        const handleLike = async (id) => {
+            await db.collection('reviews').doc(id).update({
+                likes: firebase.firestore.FieldValue.increment(1)
+            });
+            loadReviews();
+        };
 
-        function renderReviews() {
-            const container = document.getElementById('reviewsContainer');
-            container.innerHTML = reviews.map((review, index) => `
-                <div class="review-card">
-                    <h3>${review.anime} - S${review.season} E${review.episode}</h3>
-                    <p><strong>${review.name}</strong> <em>(${review.date})</em></p>
-                    <p>${review.comment}</p>
-                    <div class="rating-buttons">
-                        <button onclick="handleRating(${index}, 'like')">👍 ${review.likes}</button>
-                        <button onclick="handleRating(${index}, 'dislike')">👎 ${review.dislikes}</button>
-                    </div>
-                </div>
-            `).join('');
-        }
+        const handleDislike = async (id) => {
+            await db.collection('reviews').doc(id).update({
+                dislikes: firebase.firestore.FieldValue.increment(1)
+            });
+            loadReviews();
+        };
+
+        // Sistema de denúncias
+        const handleReport = async (id) => {
+            const docRef = db.collection('reviews').doc(id);
+            await docRef.update({
+                reports: firebase.firestore.FieldValue.increment(1)
+            });
+            
+            const doc = await docRef.get();
+            if(doc.data().reports >= 5) {
+                await docRef.delete();
+            }
+            
+            loadReviews();
+        };
+
+        // Carregar reviews ao iniciar
+        loadReviews();
     </script>
 </body>
     </html>
