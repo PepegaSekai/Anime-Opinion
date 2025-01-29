@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime Reviews</title>
+    <style>
+        :root {
+            --primary-color: #D8B4E2;
+            --secondary-color: #FFB6C1;
+            --accent-color: #E6E6FA;
+            --text-color: #4A4A4A;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Arial, sans-serif; /* Fonte atualizada */
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            animation: bounce 2s infinite;
+        }
+
+        .review-form {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid var(--primary-color);
+            border-radius: 10px;
+            background: white;
+            font-size: 16px;
+        }
+
+        button {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+            display: block;
+            margin: 20px auto 0;
+        }
+
+        .review-card {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎌 Anime Reviews 🎌</h1>
+        
+        <form class="review-form" id="reviewForm">
+            <input type="text" name="username" placeholder="Seu nome" required>
+            <input type="text" name="anime" placeholder="Nome do Anime" required>
+            <select name="season" required>
+                <option value="">Selecione a Temporada</option>
+                <!-- Opções geradas por JavaScript -->
+            </select>
+            <input type="number" name="episode" placeholder="Episódio" min="1" required>
+            <textarea name="comment" placeholder="Escreva sua review..." rows="5" required></textarea>
+            <button type="submit">Enviar Review ✔️</button>
+        </form>
+
+        <div id="reviewsContainer"></div>
+    </div>
+
+    <script>
+        // Configuração inicial
+        document.addEventListener('DOMContentLoaded', () => {
+            const seasonSelect = document.querySelector('select[name="season"]');
+            for(let i = 1; i <= 50; i++) {
+                seasonSelect.innerHTML += `<option value="${i}">Temporada ${i}</option>`;
+            }
+        });
+
+        const reviews = [];
+        const form = document.getElementById('reviewForm');
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newReview = {
+                name: form.username.value.trim(),
+                anime: form.anime.value.trim(),
+                season: form.season.value,
+                episode: form.episode.value,
+                comment: form.comment.value.trim(),
+                likes: 0,
+                dislikes: 0,
+                date: new Date().toLocaleString('pt-BR')
+            };
+
+            reviews.unshift(newReview);
+            renderReviews();
+            form.reset();
+        });
+
+        function handleRating(index, type) {
+            reviews[index][type === 'like' ? 'likes' : 'dislikes']++;
+            renderReviews();
+        }
+
+        function renderReviews() {
+            const container = document.getElementById('reviewsContainer');
+            container.innerHTML = reviews.map((review, index) => `
+                <div class="review-card">
+                    <h3>${review.anime} - S${review.season} E${review.episode}</h3>
+                    <p><strong>${review.name}</strong> <em>(${review.date})</em></p>
+                    <p>${review.comment}</p>
+                    <div class="rating-buttons">
+                        <button onclick="handleRating(${index}, 'like')">👍 ${review.likes}</button>
+                        <button onclick="handleRating(${index}, 'dislike')">👎 ${review.dislikes}</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    </script>
+</body>
+</html>
