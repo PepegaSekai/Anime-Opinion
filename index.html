@@ -32,6 +32,8 @@
             --accent-color: #E6E6FA;
             --text-color: #4A4A4A;
             --report-color: #ff4444;
+            --success-color: #4CAF50;
+            --error-color: #ff4444;
         }
 
         * {
@@ -121,6 +123,18 @@
             transition: all 0.2s;
         }
 
+        .alert-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
@@ -160,83 +174,125 @@
         const form = document.getElementById('reviewForm');
         const reviewsContainer = document.getElementById('reviewsContainer');
 
-        // Carregar reviews
+        // Função para exibir mensagens
+        function showMessage(text, isError = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'alert-message';
+            msgDiv.style.backgroundColor = isError ? var(--error-color) : var(--success-color);
+            msgDiv.textContent = text;
+
+            document.body.appendChild(msgDiv);
+            setTimeout(() => msgDiv.remove(), 3000);
+        }
+
+        // Carregar reviews com tratamento de erro
         const loadReviews = async () => {
-            const snapshot = await db.collection('reviews')
-                .orderBy('date', 'desc')
-                .get();
-            
-            reviewsContainer.innerHTML = '';
-            
-            snapshot.forEach(doc => {
-                const review = doc.data();
-                reviewsContainer.innerHTML += `
-                    <div class="review-card">
-                        <h3>${review.anime} - S${review.season} E${review.episode}</h3>
-                        <p><strong>${review.name}</strong> <em>(${new Date(review.date).toLocaleString('pt-BR')})</em></p>
-                        <p>${review.comment}</p>
-                        <div class="review-actions">
-                            <div class="rating-buttons">
-                                <button onclick="handleLike('${doc.id}')">👍 ${review.likes}</button>
-                                <button onclick="handleDislike('${doc.id}')">👎 ${review.dislikes}</button>
+            try {
+                const snapshot = await db.collection('reviews')
+                    .orderBy('date', 'desc')
+                    .get();
+                
+                reviewsContainer.innerHTML = '';
+                
+                snapshot.forEach(doc => {
+                    const review = doc.data();
+                    reviewsContainer.innerHTML += `
+                        <div class="review-card">
+                            <h3>${review.anime} - S${review.season} E${review.episode}</h3>
+                            <p><strong>${review.name}</strong> <em>(${new Date(review.date).toLocaleString('pt-BR')})</em></p>
+                            <p>${review.comment}</p>
+                            <div class="review-actions">
+                                <div class="rating-buttons">
+                                    <button onclick="handleLike('${doc.id}')">👍 ${review.likes}</button>
+                                    <button onclick="handleDislike('${doc.id}')">👎 ${review.dislikes}</button>
+                                </div>
+                                <button class="report-btn" onclick="handleReport('${doc.id}')">
+                                    🚩 Denúncias: ${review.reports}
+                                </button>
                             </div>
-                            <button class="report-btn" onclick="handleReport('${doc.id}')">
-                                🚩 Denúncias: ${review.reports}
-                            </button>
                         </div>
-                    </div>
-                `;
-            });
+                    `;
+                });
+            } catch (error) {
+                showMessage(`Erro ao carregar reviews: ${error.message}`, true);
+                console.error('Erro no loadReviews:', error);
+            }
         };
 
-        // Enviar nova review
+        // Enviar review com tratamento de erro
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            await db.collection('reviews').add({
-                name: form.username.value.trim(),
-                anime: form.anime.value.trim(),
-                season: form.season.value,
-                episode: form.episode.value,
-                comment: form.comment.value.trim(),
-                likes: 0,
-                dislikes: 0,
-                reports: 0,
-                date: new Date().toISOString()
-            });
+            try {
+                // Validação adicional
+                if (!form.season.value || !form.episode.value) {
+                    showMessage('Preencha todos os campos!', true);
+                    return;
+                }
 
-            form.reset();
-            loadReviews();
+                await db.collection('reviews').add({
+                    name: form.username.value.trim(),
+                    anime: form.anime.value.trim(),
+                    season: form.season.value,
+                    episode: form.episode.value,
+                    comment: form.comment.value.trim(),
+                    likes: 0,
+                    dislikes: 0,
+                    reports: 0,
+                    date: new Date().toISOString()
+                });
+
+                form.reset();
+                showMessage('Review enviada com sucesso! ✔️');
+                await loadReviews();
+                
+            } catch (error) {
+                showMessage(`Erro ao enviar review: ${error.message}`, true);
+                console.error('Erro no submit:', error);
+            }
         });
 
         // Sistema de votação
         const handleLike = async (id) => {
-            await db.collection('reviews').doc(id).update({
-                likes: firebase.firestore.FieldValue.increment(1)
-            });
-            loadReviews();
+            try {
+                await db.collection('reviews').doc(id).update({
+                    likes: firebase.firestore.FieldValue.increment(1)
+                });
+                loadReviews();
+            } catch (error) {
+                showMessage(`Erro ao curtir: ${error.message}`, true);
+            }
         };
 
         const handleDislike = async (id) => {
-            await db.collection('reviews').doc(id).update({
-                dislikes: firebase.firestore.FieldValue.increment(1)
-            });
-            loadReviews();
+            try {
+                await db.collection('reviews').doc(id).update({
+                    dislikes: firebase.firestore.FieldValue.increment(1)
+                });
+                loadReviews();
+            } catch (error) {
+                showMessage(`Erro ao descurtir: ${error.message}`, true);
+            }
         };
 
         // Sistema de denúncias
         const handleReport = async (id) => {
-            const docRef = db.collection('reviews').doc(id);
-            await docRef.update({
-                reports: firebase.firestore.FieldValue.increment(1)
-            });
-            
-            const doc = await docRef.get();
-            if(doc.data().reports >= 5) {
-                await docRef.delete();
+            try {
+                const docRef = db.collection('reviews').doc(id);
+                await docRef.update({
+                    reports: firebase.firestore.FieldValue.increment(1)
+                });
+                
+                const doc = await docRef.get();
+                if(doc.data().reports >= 5) {
+                    await docRef.delete();
+                    showMessage('Review removida por excesso de denúncias!');
+                }
+                
+                loadReviews();
+            } catch (error) {
+                showMessage(`Erro ao reportar: ${error.message}`, true);
             }
-            
-            loadReviews();
         };
 
         // Carregar reviews ao iniciar
