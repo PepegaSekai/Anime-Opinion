@@ -16,7 +16,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Arial, sans-serif; /* Fonte atualizada */
+            font-family: 'Segoe UI', Arial, sans-serif;
         }
 
         body {
@@ -100,7 +100,6 @@
             <input type="text" name="anime" placeholder="Nome do Anime" required>
             <select name="season" required>
                 <option value="">Selecione a Temporada</option>
-                <!-- Opções geradas por JavaScript -->
             </select>
             <input type="number" name="episode" placeholder="Episódio" min="1" required>
             <textarea name="comment" placeholder="Escreva sua review..." rows="5" required></textarea>
@@ -111,16 +110,28 @@
     </div>
 
     <script>
-        // Configuração inicial
         document.addEventListener('DOMContentLoaded', () => {
+            // Carrega reviews salvas
+            const savedReviews = localStorage.getItem('animeReviews');
+            if (savedReviews) {
+                reviews = JSON.parse(savedReviews);
+            }
+            
+            // Preenche temporadas
             const seasonSelect = document.querySelector('select[name="season"]');
             for(let i = 1; i <= 50; i++) {
                 seasonSelect.innerHTML += `<option value="${i}">Temporada ${i}</option>`;
             }
+            
+            renderReviews();
         });
 
-        const reviews = [];
+        let reviews = JSON.parse(localStorage.getItem('animeReviews')) || [];
         const form = document.getElementById('reviewForm');
+
+        function saveReviews() {
+            localStorage.setItem('animeReviews', JSON.stringify(reviews));
+        }
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -136,12 +147,14 @@
             };
 
             reviews.unshift(newReview);
+            saveReviews();
             renderReviews();
             form.reset();
         });
 
         function handleRating(index, type) {
             reviews[index][type === 'like' ? 'likes' : 'dislikes']++;
+            saveReviews();
             renderReviews();
         }
 
@@ -161,4 +174,4 @@
         }
     </script>
 </body>
-</html>
+    </html>
